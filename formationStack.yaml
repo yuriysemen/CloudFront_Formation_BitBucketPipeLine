@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Static UI code deployment example
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      WebsiteEndpoint: s3-website-us-east-1.amazonaws.com
+    us-west-2:
+      WebsiteEndpoint: s3-website-us-west-2.amazonaws.com
+    us-west-1:
+      WebsiteEndpoint: s3-website-us-west-1.amazonaws.com
+    eu-west-1:
+      WebsiteEndpoint: s3-website-eu-west-1.amazonaws.com
+    eu-central-1:
+      WebsiteEndpoint: s3-website.eu-central-1.amazonaws.com
+    ap-southeast-1:
+      WebsiteEndpoint: s3-website-ap-southeast-1.amazonaws.com
+    ap-northeast-1:
+      WebsiteEndpoint: s3-website-ap-northeast-1.amazonaws.com
+    ap-southeast-2:
+      WebsiteEndpoint: s3-website-ap-southeast-2.amazonaws.com
+    ap-northeast-2:
+      WebsiteEndpoint: s3-website.ap-northeast-2.amazonaws.com
+    sa-east-1:
+      WebsiteEndpoint: s3-website-sa-east-1.amazonaws.com
+
+  DomainNameMap:
+    DomainName:
+      test: test.domain.com
+      staging: staging.domain.com
+      prod: domain.com
+
+Parameters:
+  ENV:
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - staging
+      - prod
+  AcmCertificateArn:
+    Description: ARN of the ACM certificate for the domain name, must be registered in us-east-1
+    Type: String
+
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !FindInMap [DomainNameMap, "DomainName", !Ref ENV]
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:GetObject
+          Effect: Allow
+          Resource: !Sub 'arn:aws:s3:::${S3Bucket}/*'
+          Principal: "*"
+
+  MyDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+#   Uncomment this after You'll get configured DNS to have an alias for your domain pointed to CloudFront Distribution.
+#        Aliases:
+#          - !FindInMap [DomainNameMap, "DomainName", !Ref ENV]
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          TargetOriginId: S3BucketOrigin
+          ForwardedValues:
+            QueryString: 'false'
+          ViewerProtocolPolicy: allow-all
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 86400
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        Enabled: 'true'
+        Origins:
+        - CustomOriginConfig:
+            HTTPPort: '80'
+            HTTPSPort: '443'
+            OriginProtocolPolicy: http-only
+          DomainName:
+            Fn::Join:
+            - "."
+            - - Ref: S3Bucket
+              - Fn::FindInMap:
+                - RegionMap
+                - Ref: AWS::Region
+                - WebsiteEndpoint
+          Id: S3BucketOrigin
+        PriceClass: PriceClass_100
+#   Uncomment this after You'll get configured ACM certificate for domain.
+#        ViewerCertificate:
+#          AcmCertificateArn:
+#            Ref: AcmCertificateArn
+#          MinimumProtocolVersion: TLSv1
+#          SslSupportMethod: sni-only

@@ -1,0 +1,58 @@
+pipelines:
+  custom:
+    build:
+      - step: &build
+          image: node:12.16.1
+          name: Build UI
+          caches:
+            - node
+          artifacts:
+            - dist/**
+          script:
+            # This section should actually build UI distribution. Could be used `$BITBUCKET_BRANCH` variable to choose proper build mode.
+            # In this example we just creating folder and copying `index.html` into it.
+            # `dist` folder will be submitted to CloudFront cache.
+            - mkdir dist
+            - cp -r ./src/ ./dist/
+
+  branches:
+    master:
+      - step: *build
+
+      - step:
+          image: python:3.8.2
+          name: Deploy to STAGING
+          caches:
+            - pip
+          artifacts:
+            - generated.yaml
+          deployment: staging
+          script:
+            - pip install awscli
+
+            - echo "Making deployment package..."
+            - aws cloudformation package --region $AWS_DEFAULT_REGION --template-file formationStack.yaml --output-template-file generated.yaml
+
+            - echo "Updating AWS CloudFormation stack..."
+            - bash aws-cloudformation.sh deploy --template-file generated.yaml --stack-name staging_domain_com --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ENV=staging AcmCertificateArn=<ARN of ACM certificate>
+
+            - aws s3 sync ./dist/ s3://staging.domain.com
+            - # After first build - fill Distribution ID into next line and uncomment it.
+            - # aws cloudfront create-invalidation --distribution-id <ID of Distribution> --paths "/*"
+
+      - step:
+          image: python:3.8.2
+          name: Deploy to PROD
+          caches:
+            - pip
+          deployment: production
+          trigger: manual
+          script:
+            - pip install awscli
+
+            - echo "Updating AWS CloudFormation stack..."
+            - bash aws-cloudformation.sh deploy --template-file generated.yaml --stack-name domain_com --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ENV=staging AcmCertificateArn=<ARN of ACM certificate>
+
+            - aws s3 sync ./dist/ s3://domain.com
+            - # After first build - fill Distribution ID into next line and uncomment it.
+            - # aws cloudfront create-invalidation --distribution-id <ID of Distribution> --paths "/*"
