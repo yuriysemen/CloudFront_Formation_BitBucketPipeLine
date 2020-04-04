@@ -13,7 +13,7 @@ pipelines:
             # In this example we just creating folder and copying `index.html` into it.
             # `dist` folder will be submitted to CloudFront cache.
             - mkdir dist
-            - cp -r ./src ./dist
+            - cp -r ./src/* ./dist
 
   branches:
     master:
