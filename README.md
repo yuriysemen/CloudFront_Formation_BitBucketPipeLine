@@ -1,7 +1,7 @@
 # Deployment to AWS CloudFront using AWS Cloud Formation and Bitbucket PipeLines
 It is an example of how to quickly deploy static UI code to AWS CloudFront using Bitbucket Pipe Lines.
 This approach creates AWS Formation Stack or updates if one already created.
-This code should be pushed to repository on Bitbucket! `bitbucket-pipelines.yml` file will be ignored on
+This code should be pushed to the repository on Bitbucket! `bitbucket-pipelines.yml` file will be ignored on
  other platforms!
 
 ## Configuring Bitbucket PipeLines
@@ -34,6 +34,10 @@ The building of the code is triggered each time changes are pushed to the reposi
 
 
 ## First deployment
+
+### AWS CloudFormation Deployments' data bucket
+AWS CloudFormation uses the S3 bucket to upload some deployments' intermediate data. So, before triggering the first build - you need to create such a bucket for AWS CloudFormation. You should put the name of that bucket into `bitbucket-pipelines.yml` file.
+That data is using only between `package` and `deploy` stages of AWS CloudFormation stack. So, best practice is to configure automatic deleting files from the bucket after some period e.g., 30 days.
 
 ### Invalidation of AWS CloudFront distribution cache
 During the first deployment, there is no distribution yet. Id of the distribution is required to invalidate the AWS CloudFront cache. I commented 2 lines in `bitbucket-pipelines.yml` to avoid build issues. After the first deployment, you can use the id of created distribution and uncomment that lines. Remember that there are different distributions for different environments.
