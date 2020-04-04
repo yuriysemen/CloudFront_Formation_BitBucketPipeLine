@@ -31,7 +31,7 @@ pipelines:
             - pip install awscli
 
             - echo "Making deployment package..."
-            - aws cloudformation package --region $AWS_DEFAULT_REGION --template-file formationStack.yaml --output-template-file generated.yaml
+            - aws cloudformation package --region $AWS_DEFAULT_REGION --template-file formationStack.yaml --output-template-file generated.yaml --s3-bucket awsformation.deployments.domain.com
 
             - echo "Updating AWS CloudFormation stack..."
             - bash aws-cloudformation.sh deploy --template-file generated.yaml --stack-name staging_domain_com --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ENV=staging AcmCertificateArn=<ARN of ACM certificate>
